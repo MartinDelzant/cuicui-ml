@@ -63,3 +63,5 @@ target/
 
 #All WAV Files
 *.wav
+/AmazonBird50_training_input.tar.gz
+/AmazonBird50_testing_input.tar.gz
