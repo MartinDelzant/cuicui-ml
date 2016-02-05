@@ -65,3 +65,5 @@ target/
 *.wav
 /AmazonBird50_training_input.tar.gz
 /AmazonBird50_testing_input.tar.gz
+/readme.testing_input.txt
+/readme.training_input.txt
