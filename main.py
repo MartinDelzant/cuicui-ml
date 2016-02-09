@@ -6,8 +6,14 @@ import os
 from sklearn.ensemble import RandomForestClassifier
 import subprocess
 
-dir_path = './AmazonBird50_training_input/'
+train_path = './AmazonBird50_training_input/'
 test_path = './AmazonBird50_testing_input/'
+
+JOHAN_PATH_TO_CONFIG = '../../Programmes/openSMILE-2.1.0/config' + \
+                       '/MFCC12_0_D_A.conf'
+
+MARTIN_PATH_TO_CONFIG = '/home/martin/Applications/openSMILE-2.2rc1' + \
+                        '/config/MFCC12_0_D_A.conf'
 sampling_rate = 44100  # Hz
 
 labels = pd.read_csv(
@@ -17,7 +23,7 @@ labels = pd.read_csv(
 # Préférez l'itérateur en dessous !!!
 
 
-def read_wav(dir_path=dir_path, verbose=0, max_files=None):
+def read_wav(dir_path=train_path, verbose=0, max_files=None):
     raw_data = []
     for _, _, files in os.walk(dir_path):
         for i, file_name in enumerate(sorted(files)[:max_files]):
@@ -28,7 +34,7 @@ def read_wav(dir_path=dir_path, verbose=0, max_files=None):
     return raw_data
 
 
-def read_wav_iter(dir_path=dir_path, verbose=0, return_file_name=False):
+def read_wav_iter(dir_path=train_path, verbose=0, return_file_name=False):
     for _, _, files in os.walk(dir_path):
         for i, file_name in enumerate(sorted(files)):
             if return_file_name:
@@ -54,6 +60,26 @@ def get_features_welch(sig, min_range=1000, max_range=10000,
         features.append(temp_Pxx.std())
     return features
 
+
+def create_MFCC(path_to_config, train=True, verbose=0):
+    if train:
+        dir_path = train_path
+        output_dir = '/train'
+    else:
+        dir_path = test_path
+        output_dir = '/test'
+    for _, _, files in os.walk(dir_path):
+        for i, file_name in enumerate(sorted(files)):
+            if verbose:
+                print(file_name)
+            out_file_name = file_name.replace('.wav', '.csv')
+            line_command = 'SMILExtract -C ' + path_to_config + \
+                           ' -I ' + dir_path + file_name + \
+                           ' -O ' + \
+                           'MFCC' + output_dir + '/MFCC_' + out_file_name
+            subprocess.call(line_command, shell=True)
+
+
 print('train features')
 X_welch = np.array([get_features_welch(x) for x in read_wav_iter()])
 
@@ -73,16 +99,7 @@ y_pred = model.predict(X_welch_test)
 filenames = list(
     map(lambda x: x.split('.')[0],
         list(read_wav_iter(test_path, return_file_name=True)))
-    )
-
-def create_MFCC(dir_path=dir_path, path_to_config='../../Programmes/openSMILE-2.1.0/config/MFCC12_0_D_A.conf', verbose=0):
-    for _, _, files in os.walk(dir_path):
-        for i, file_name in enumerate(sorted(files)):
-            if verbose:
-                print(file_name)
-            out_file_name = file_name.replace('.wav','.csv')
-            line_command = 'SMILExtract -C ' + config + ' -I ' + dir_path + file_name + ' -O ' + 'MFCC/train/MFCC_' + out_file_name
-            subprocess.call(line_command, shell=True)
+)
 
 df_pred = pd.DataFrame({'ID': filenames, 'Class': y_pred})
 df_pred.index = df_pred['ID']
