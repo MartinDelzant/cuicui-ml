@@ -42,5 +42,5 @@ def create_MFCC(dir_path=dir_path, path_to_config='../../Programmes/openSMILE-2.
             if verbose:
                 print(file_name)
             out_file_name = file_name.replace('.wav','.csv')
-            line_command = 'SMILExtract -C ' + config + ' -I ' + dir_path + file_name + ' -O ' + 'MFCC_' + out_file_name
+            line_command = 'SMILExtract -C ' + config + ' -I ' + dir_path + file_name + ' -O ' + 'MFCC/train/MFCC_' + out_file_name
             subprocess.call(line_command, shell=True)
