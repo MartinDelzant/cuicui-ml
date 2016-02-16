@@ -14,4 +14,13 @@ And placed in subdirectories : AmazonBird50_training_input and AmazonBird50_test
 
 ## Data
 
-The data comes from
+The data comes from ... (TO be completed)
+
+## Prediction 
+
+Détails des submits :
+
+ypred2.csv : Welch features (1000:10000:500 -> 2 by 2) + RDF 800 estim, max_feat 5.
+7-Cross-val score ~31%
+Leaderboard : 32%
+
