@@ -1,5 +1,4 @@
 import numpy as np
-import scipy as sc
 from scipy.signal import (butter, lfilter, spectrogram)
 import math
 import matplotlib.pyplot as plt

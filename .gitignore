@@ -68,3 +68,6 @@ target/
 /readme.testing_input.txt
 /readme.training_input.txt
 /MFCC/*
+/firstSubmitMFCC.csv
+/firstXGBsubmit.csv
+/split_firstTest.csv

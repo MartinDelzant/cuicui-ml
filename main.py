@@ -20,12 +20,17 @@ JOHAN_PATH_TO_CONFIG = '../../Programmes/openSMILE-2.1.0/config' + \
 
 MARTIN_PATH_TO_CONFIG = '/home/martin/Applications/openSMILE-2.2rc1' + \
                         '/config/MFCC12_0_D_A.conf'
+
+PATH_TO_CONFIG = 'OpenSmileConfig/MFCC12_0_D_A.conf'
+
 sampling_rate = 44100  # Hz
 
 labels = pd.read_csv(
     './challenge_output_data_training_file_classify_bird_songs.csv', sep=";")
 y = labels.Class.values
 cv = StratifiedKFold(y, n_folds=7, shuffle=True, random_state=42)
+
+
 # Attention -> Données assez grosses ...
 # Préférez l'itérateur en dessous !!!
 
@@ -53,11 +58,30 @@ def read_wav_iter(dir_path=train_path, verbose=0, return_file_name=False):
                 yield data
 
 
+def augment_data(sig, length=44100):
+    if len(sig) < length:
+        return [sig]
+    else:
+        n = len(sig)
+        augment_1 = np.split(sig, range(0, n, length)[1:-1])
+        augment_2 = np.split(sig[length // 2:],
+                             range(0, n - length // 2, length)[1:-1])
+        augment_1.extend(augment_2)
+        return augment_1
+
+
+def augmented_data_iter(length=44100):
+    for i, dat in enumerate(read_wav_iter()):
+        curr_label = y[i]
+        for aug_dat in augment_data(dat, length=length):
+            yield (i, curr_label, aug_dat)
+
+
 def get_features_welch(sig, min_range=1000, max_range=10000,
-                       nperseg=256 * 4, **kwargs):
+                       window_length=500, nperseg=256 * 4, **kwargs):
     # On prend des moyennes, max, std pour voir :
     f, Pxx = signal.welch(sig, sampling_rate, nperseg=nperseg, **kwargs)
-    list_sep = np.arange(min_range, max_range, 500)
+    list_sep = np.arange(min_range, max_range, window_length)
     features = [
         Pxx.mean(),
         Pxx.std()]
@@ -68,7 +92,24 @@ def get_features_welch(sig, min_range=1000, max_range=10000,
     return features
 
 
-def create_MFCC(path_to_config, train=True, verbose=0):
+def aug_cross_val(true_idx, initial_cv=cv):
+    """
+    true_idx : Array containing the idx
+    of the current data in the original dataset
+
+    initial_cv : cv object from initial dataset
+    """
+    if initial_cv is None:
+        raise ValueError
+    for train, test in initial_cv:
+        matching_train_idx = np.where(
+            [elem in train for elem in true_idx])[0]
+        matching_test_idx = np.where(
+            [elem in test for elem in true_idx])[0]
+        yield matching_train_idx, matching_test_idx
+
+
+def create_MFCC(path_to_config=PATH_TO_CONFIG, train=True, verbose=0):
     if train:
         dir_path = train_path
         output_dir = '/train'
@@ -88,13 +129,20 @@ def create_MFCC(path_to_config, train=True, verbose=0):
 
 
 def read_MFCC(path, train=True, drop=['frameIndex', 'frameTime']):
-    if train:
+    if train is None:
+        complete_path = path
+    elif train:
         complete_path = './MFCC/train/' + path
     else:
         complete_path = './MFCC/test/' + path
     df = pd.read_csv(complete_path, sep=';')
-    if drop:
-        df = df.drop(drop, axis=1)
+    if type(drop) is list:
+        if not np.all([col in df.columns for col in drop]):
+            for col in drop:
+                if col in df.columns:
+                    df = df.drop(col, axis=1)
+        else:
+            df = df.drop(drop, axis=1)
     return df
 
 
@@ -122,14 +170,35 @@ def getStatsOnMfcc(train=True, drop_col=['frameIndex', 'frameTime'],
     for _, _, files in os.walk('./MFCC/' + dir_path):
         for i, file_name in enumerate(sorted(files)):
             result.append(aggregateMfcc(
-                                       read_MFCC(file_name,
-                                                 train=train,
-                                                 drop=drop_col),
-                                       drop=drop_line,
-                                       use_kurt=use_kurt,
-                                       use_skew=use_skew)
-                          )
+                read_MFCC(file_name,
+                          train=train,
+                          drop=drop_col),
+                drop=drop_line,
+                use_kurt=use_kurt,
+                use_skew=use_skew)
+            )
     return np.array(result)
+
+
+def runOpenSmile(sig, path_to_config=PATH_TO_CONFIG,
+                 sampling_rate=sampling_rate,
+                 clean_file=True, drop=['frameIndex', 'frameTime']):
+    # from digital signal, calculate MFCC with openSmile
+    tmp_idx = 0
+    while os.path.isfile('tmp_sig' + str(tmp_idx)):
+        tmp_idx += 1
+    sig_filename = 'tmp_sig' + str(tmp_idx)
+    out_filename = sig_filename + '_out'
+    wavfile.write(sig_filename, sampling_rate, sig)
+    line_command = 'SMILExtract -C ' + path_to_config + \
+                   ' -I ' + sig_filename + \
+                   ' -O ' + out_filename
+    subprocess.call(line_command, shell=True)
+    df = read_MFCC(out_filename, train=None, drop=drop)
+    if clean_file:
+        os.remove(sig_filename)
+        os.remove(out_filename)
+    return df
 
 
 def n_estimators_path(model, n_estimators_range, X_train,
@@ -161,17 +230,28 @@ def cross_val_gdb(X, y, cv=cv, n_estimators_range=range(50, 1201, 50),
     Computes the mean across all folds in the end (stage-wise)
     """
     all_res = Parallel(n_jobs=n_jobs)(
-                            delayed(n_estimators_path)(
-                                GradientBoostingClassifier(
-                                    warm_start=True, **kwargs
-                                ),
-                                n_estimators_range,
-                                X[train, :], y[train],
-                                X[test, :], y[test],
-                                imputer=imputer
-                            ) for train, test in cv)
+        delayed(n_estimators_path)(
+            GradientBoostingClassifier(
+                warm_start=True, **kwargs
+            ),
+            n_estimators_range,
+            X[train, :], y[train],
+            X[test, :], y[test],
+            imputer=imputer
+        ) for train, test in cv)
     res = np.mean(all_res, axis=0)
     return res
+
+
+def savePrediction(filename, y_pred):
+    filenames = list(
+        map(lambda x: x.split('.')[0],
+            list(read_wav_iter(test_path, return_file_name=True)))
+    )
+    df_pred = pd.DataFrame({'ID': filenames, 'Class': y_pred})
+    df_pred.index = df_pred['ID']
+    df_pred.drop('ID', axis=1).to_csv(filename, sep=";")
+    return
 
 if __name__ == '__main__':
     print('\nCalculating train features ...')
