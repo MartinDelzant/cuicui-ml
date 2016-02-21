@@ -2,6 +2,9 @@ from scipy import signal
 
 sampling_rate = 44100
 
+from segmentation import *
+from main import *
+
 
 class Preprocess(object):
 
@@ -10,17 +13,22 @@ class Preprocess(object):
         self.width = width
         self.ripple_db = ripple_db
         self.cutoff_hz = cutoff_hz
+        self.true_idx = []
         return
 
     def fit(self, X, y=None):
         return
 
     def transform(self, X, y=None):
-        for sig in X:
+        for i, sig in enumerate(X):
             N, beta = signal.kaiserord(self.ripple_db, self.width)
             taps = signal.firwin(
                 N, self.cutoff_hz * 2 / sampling_rate, window=('kaiser', beta))
-            yield signal.lfilter(taps, 1.0, sig)
+            filtered_sig = signal.lfilter(taps, 1.0, sig)
+            syl_gen = segmentation(filtered_sig)
+            for syllabe in syl_gen:
+                self.true_idx.append(i)
+                yield runOpenSmile(syllabe)
         return
 
     def fit_transform(self, X, y=None):
