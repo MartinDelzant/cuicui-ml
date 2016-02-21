@@ -128,3 +128,15 @@ def segmentation(sig, fs=sampling_rate, beta=70,
         return syllabe_gen
     except:
         return [sig]
+
+
+def segmentation(sig, fs=sampling_rate, beta=70, stop_amp=90, n_max=1000, all_freq=False):
+    f, t, spectro = spectro_conv(sig, fs)
+    low, high, _, _ = extract_all_syllabes(spectro, beta=beta, stop_amp=stop_amp, n_max=n_max, all_freq=all_freq)
+    conv_ratio = 192000./44100.
+    print "%d syllabes extracted" % len(low)
+    print "Average length : %.2f ms" % (conv_ratio*(np.array(high) - np.array(low))).mean()
+    print "Min length :  %.2f ms" % np.min(conv_ratio*(np.array(high) - np.array(low)))
+    print "Max length :  %.2f ms" % np.max(conv_ratio*(np.array(high) - np.array(low)))
+    syllabe_gen = gen_syllabes(sig, low, high)
+    return syllabe_gen
