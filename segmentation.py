@@ -3,6 +3,7 @@ from scipy.signal import (butter, lfilter, spectrogram)
 import math
 import matplotlib.pyplot as plt
 
+sampling_rate = 44100
 
 def butter_bandpass_filter(data, lowcut=500, highcut=5000, fs=44100, order=10):
 
@@ -102,7 +103,7 @@ def gen_syllabes(sig, low, high):
         yield sig[idx_low*192:(idx_high+1)*192]
 
 
-def segmentation(sig, fs, beta=70, stop_amp=90, n_max=1000, all_freq=False):
+def segmentation(sig, fs=sampling_rate, beta=70, stop_amp=90, n_max=1000, all_freq=False):
     spectro = spectro_conv(sig, fs)
     low, high, _, _ = extract_all_syllabes(spectro, beta=beta, stop_amp=stop_amp, n_max=n_max, all_freq=all_freq)
     conv_ratio = 192000./44100.
