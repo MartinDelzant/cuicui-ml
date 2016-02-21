@@ -1,0 +1,28 @@
+SUBMIT 1 :
+
+Welch, RDF ~ 600 estim
+
+SUBMIT 2:
+
+MFCC on raw data.
+(default value for everything)
+Aggregate MFCC using : 
+-> mean, std, min, 25%, 50%, 75%, max
+RDF n_estim = 1500
+cross_ val score 44% (not seeded though :/)
+leaderboard 47%
+
+SUBMIT 3 : 
+
+Same as 2. 
+model is XGBoost with params : 
+n_estimators=500, learning_rate=0.095, subsample=0.7, colsample_bytree=0.9, reg_alpha=0.1
+cross_val score : 45% (no seed needed)
+leaderboard 45%
+
+SUBMIT 4 : 
+
+First test on data splitting. 
+Overfitted :'( 
+RDF 500 estim
+Need to do a better cross validation 
