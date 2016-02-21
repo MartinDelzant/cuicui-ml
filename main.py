@@ -187,7 +187,7 @@ def runOpenSmile(sig, path_to_config=PATH_TO_CONFIG,
     tmp_idx = 0
     while os.path.isfile('tmp_sig' + str(tmp_idx)):
         tmp_idx += 1
-    sig_filename = 'tmp_sig' + str(tmp_idx)
+    sig_filename = 'tmp_sig' + str(tmp_idx) + '.wav'
     out_filename = sig_filename + '_out'
     wavfile.write(sig_filename, sampling_rate, sig)
     line_command = 'SMILExtract -C ' + path_to_config + \
