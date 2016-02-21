@@ -45,29 +45,27 @@ def extract_syllabe(spectro, beta=20, stop_amp=40, all_freq=True):  # test stop_
     if max_ampli <= stop_amp:
         return -1, -1, -1, -1
     # find index of row and column corresponding to max power/amplitude
-    t_max, f_max = np.unravel_index(spectro_abs.argmax(), spectro_abs.shape)
+    f_max, t_max = np.unravel_index(spectro_abs.argmax(), spectro_abs.shape)
     # browse neighbor amplitudes until it has decreased enough
     # forward search
-    high_cut = spectro.shape[0] - 1
-    for t in range(spectro.shape[0]):
+    high_cut = spectro.shape[1] - 1
+    for t in range(spectro.shape[1]):
         if all_freq:
-            curr_f_max = np.argmax(amplitudes[t_max + t, :])
-            curr_value = amplitudes[t_max + t, curr_f_max]
+            curr_value = np.max(amplitudes[:, t_max+t])
         else:
-            curr_value = amplitudes[t_max + t, f_max]
-        if t_max + t >= spectro.shape[0] - 1:
+            curr_value = amplitudes[f_max, t_max+t]
+        if t_max + t >= spectro.shape[1] - 1:
             break
         if curr_value < max_ampli - beta:
             high_cut = t_max + t
             break
     # backward search
     low_cut = 0
-    for t in range(spectro.shape[0]):
+    for t in range(spectro.shape[1]):
         if all_freq:
-            curr_f_max = np.argmax(amplitudes[t_max - t, :])
-            curr_value = amplitudes[t_max - t, curr_f_max]
+            curr_f_max = np.max(amplitudes[:, t_max-t])
         else:
-            curr_value = amplitudes[t_max - t, f_max]
+            curr_value = amplitudes[f_max, t_max-t]
         if t_max - t <= 0:
             break
         if curr_value < max_ampli - beta:
@@ -76,14 +74,15 @@ def extract_syllabe(spectro, beta=20, stop_amp=40, all_freq=True):  # test stop_
     return low_cut, high_cut, t_max, max_power
 
 
-def extract_all_syllabes(spectro, beta=20, stop_amp=10, n_max=100, all_freq=True):
+def extract_all_syllabes(spectro, beta=30, stop_amp=10, n_max=100, all_freq=True):
     low_cuts = []
     high_cuts = []
     idxs_max = []
     max_powers = []
+    spectro_bis = spectro.copy()
 
     for i in range(n_max):
-        low_cut, high_cut, idx_max, max_power = extract_syllabe(spectro, beta=beta, stop_amp=stop_amp, all_freq=all_freq)
+        low_cut, high_cut, idx_max, max_power = extract_syllabe(spectro_bis, beta=beta, stop_amp=stop_amp, all_freq=all_freq)
         # this means that there are no longer syllabes to extract
         if low_cut == -1:
             break
@@ -92,7 +91,24 @@ def extract_all_syllabes(spectro, beta=20, stop_amp=10, n_max=100, all_freq=True
         idxs_max.append(idx_max)
         max_powers.append(max_power)
         # put values to zero to avoid retrieving same syllabe multiple times
-        spectro[low_cut:high_cut+1, :] = np.zeros((high_cut-low_cut+1, spectro.shape[1]))
+        spectro_bis[:, low_cut:high_cut+1] = np.zeros((spectro_bis.shape[0], high_cut-low_cut+1))
 
     return low_cuts, high_cuts, idxs_max, max_powers
 
+
+def gen_syllabes(sig, low, high):
+    for i, idx_low in enumerate(low):
+        idx_high = high[i]
+        yield sig[idx_low*192:(idx_high+1)*192]
+
+
+def segmentation(sig, fs, beta=70, stop_amp=90, n_max=1000, all_freq=False):
+    spectro = spectro_conv(sig, fs)
+    low, high, _, _ = extract_all_syllabes(spectro, beta=beta, stop_amp=stop_amp, n_max=n_max, all_freq=all_freq)
+    conv_ratio = 192000./44100.
+    print "%d syllabes extracted" % len(low)
+    print "Average length : %.2f ms" % (conv_ratio*(np.array(high) - np.array(low))).mean()
+    print "Min length :  %.2f ms" % np.min(conv_ratio*(np.array(high) - np.array(low)))
+    print "Max length :  %.2f ms" % np.max(conv_ratio*(np.array(high) - np.array(low)))
+    syllabe_gen = gen_syllabes(sig, low, high)
+    return syllabe_gen
