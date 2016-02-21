@@ -22,6 +22,7 @@ MARTIN_PATH_TO_CONFIG = '/home/martin/Applications/openSMILE-2.2rc1' + \
                         '/config/MFCC12_0_D_A.conf'
 
 PATH_TO_CONFIG = 'OpenSmileConfig/MFCC12_0_D_A.conf'
+PATH_TO_CONFIG_PLP = 'OpenSmileConfig/PLP_0_D_A.conf'
 
 sampling_rate = 44100  # Hz
 
@@ -146,6 +147,43 @@ def read_MFCC(path, train=True, drop=['frameIndex', 'frameTime']):
     return df
 
 
+def create_PLP(path_to_config=PATH_TO_CONFIG_PLP, train=True, verbose=0):
+    if train:
+        dir_path = train_path
+        output_dir = '/train'
+    else:
+        dir_path = test_path
+        output_dir = '/test'
+    for _, _, files in os.walk(dir_path):
+        for i, file_name in enumerate(sorted(files)):
+            if verbose:
+                print(file_name)
+            out_file_name = file_name.replace('.wav', '.csv')
+            line_command = 'SMILExtract -C ' + path_to_config + \
+                           ' -I ' + dir_path + file_name + \
+                           ' -O ' + \
+                           'PLP' + output_dir + '/PLP_' + out_file_name
+            subprocess.call(line_command, shell=True)
+
+
+def read_PLP(path, train=True, drop=['frameIndex', 'frameTime']):
+    if train is None:
+        complete_path = path
+    elif train:
+        complete_path = './PLP/train/' + path
+    else:
+        complete_path = './PLP/test/' + path
+    df = pd.read_csv(complete_path, sep=';')
+    if type(drop) is list:
+        if not np.all([col in df.columns for col in drop]):
+            for col in drop:
+                if col in df.columns:
+                    df = df.drop(col, axis=1)
+        else:
+            df = df.drop(drop, axis=1)
+    return df
+
+
 def aggregateMfcc(df, drop=['count'], use_kurt=True,
                   use_skew=True):
     # describe donne -> min max mean std 25% etc, pour toutes les col
@@ -171,6 +209,23 @@ def getStatsOnMfcc(train=True, drop_col=['frameIndex', 'frameTime'],
         for i, file_name in enumerate(sorted(files)):
             result.append(aggregateMfcc(
                 read_MFCC(file_name,
+                          train=train,
+                          drop=drop_col),
+                drop=drop_line,
+                use_kurt=use_kurt,
+                use_skew=use_skew)
+            )
+    return np.array(result)
+
+
+def getStatsOnPlp(train=True, drop_col=['frameIndex', 'frameTime'],
+                   drop_line=['count'], use_kurt=True, use_skew=True):
+    dir_path = 'train/' if train else 'test/'
+    result = []
+    for _, _, files in os.walk('./PLP/' + dir_path):
+        for i, file_name in enumerate(sorted(files)):
+            result.append(aggregatePlp(
+                read_PLP(file_name,
                           train=train,
                           drop=drop_col),
                 drop=drop_line,
