@@ -110,6 +110,18 @@ def aug_cross_val(true_idx, initial_cv=cv):
         yield matching_train_idx, matching_test_idx
 
 
+def aggregatePrediction(y_pred, true_idx):
+    y_pred_agg = []
+    for i in range(np.max(true_idx) + 1):
+        idxs = np.where(true_idx == i)[0]
+        if len(idxs) > 0:
+            y_pred_agg.append(np.argmax(np.bincount(y_pred[idxs])))
+        else:
+            print(i)
+            y_pred_agg.append(26)
+    return np.array(y_pred_agg)
+
+
 def create_MFCC(path_to_config=PATH_TO_CONFIG, train=True, verbose=0):
     if train:
         dir_path = train_path
@@ -333,3 +345,28 @@ if __name__ == '__main__':
     df_pred = pd.DataFrame({'ID': filenames, 'Class': y_pred})
     df_pred.index = df_pred['ID']
     df_pred.drop('ID', axis=1).to_csv('truc_muche.csv', sep=";")
+    X_kmean = []
+    true_idx_kmean = []
+
+    for i in range(np.max(true_idx)+1):
+        idxs = np.where(true_idx == i)[0]
+        if len(idxs) > 3:
+            X_temp = X[idxs,:]
+            km = KMeans(n_clusters=3)
+            clusters = km.fit_predict(X_temp)
+            for j in np.unique(clusters):
+                cl_idxs = np.where(clusters == j)[0]
+                if len(cl_idxs)>0:
+                    X_to_add = X_temp[cl_idxs,:].mean(axis=0)
+                    if X_to_add.shape[0] != 351:
+                        print(X_to_add.shape, len(cl_idxs))
+                    X_kmean.append(X_to_add)
+                    true_idx_kmean.append(i)
+        elif len(idxs) >0:
+            X_to_add = X_temp.mean(axis=0)
+            if X_to_add.shape[0] != 351:
+                print(X_to_add.shape, len(idxs), 'second')
+            X_kmean.append(X_to_add)
+            true_idx_kmean.append(i)
+        else:
+            print(i)

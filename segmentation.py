@@ -105,9 +105,8 @@ def extract_all_syllabes(spectro, beta=30, stop_amp=10,
 
 
 def gen_syllabes(sig, low, high):
-    for i, idx_low in enumerate(low):
-        idx_high = high[i]
-        yield sig[idx_low * 192:(idx_high + 1) * 192]
+    return np.array([sig[idx_low * 192:(idx_high + 1) * 192]
+                     for idx_low, idx_high in zip(low, high)])
 
 
 def segmentation(sig, fs=sampling_rate, beta=70,
